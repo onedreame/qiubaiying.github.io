@@ -14,7 +14,8 @@ sidebar: true                           # whether or not using Sidebar.
 sidebar-about-description: "Goals determine what you going to be!"
 sidebar-avatar: /img/avatar_m.jpg      # use absolute URL, seeing it's used in both `/` and `/about/`
 
-
+#support latex
+markdown: kramdown
 
 # SNS settings wait for change
 RSS: false
