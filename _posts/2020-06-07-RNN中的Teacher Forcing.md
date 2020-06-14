@@ -43,9 +43,10 @@ tags:
 
 5. 而采用tf的时候，我们不在使用预测的“hello”来作为输入，而是直接使用真实的groud truth “Your”作为输入，后续的步骤都可以采用这种方式。这样下来，该模型将可以快速学习正确的序列，或序列的正确统计属性。
 
-| 输入单词  | 预测单词 |
-| --------- | -------- |
-| sos，Your | ？       |
+| 输入单词        | 预测单词 |
+| --------------- | -------- |
+| sos，Your       | ？       |
+| sos,  Your plan | ? ?      |
 
 ## 3.注意点
 
@@ -62,3 +63,17 @@ tags:
 2. Curriculum Learning
 
    这种方法在训练过程中引入由先前时间步骤产生的输出，以鼓励模型学习如何纠正自己的错误。它可以通过随机选择使用groud truth或前一个时间步的生成输出作为当前时间步的输入来实现。在实际应用的时候，可以通过开始使用较高的tf率，后续逐渐降低tf率来改善效果。
+
+   ```python
+   # curriculum learning代码片段
+   use_teacher_forcing = random.random() < teacher_forcing_ratio
+   for t in range(max_target_length):
+     decoder_output, decoder_hidden, decoder_attn = self.decoder(
+         decoder_input, decoder_hidden, encoder_outputs
+     )
+   
+     decoder_outputs.append(decoder_output)
+     decoder_input = tgt[t] if use_teacher_forcing else decoder_output.argmax(-1)
+   ```
+
+   
