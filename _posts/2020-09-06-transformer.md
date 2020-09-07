@@ -41,8 +41,10 @@ tags:
 
 ​	从模型上来看，transformer本身并不复杂，理解了它的几个组件，便可以理解其实现原理：
 
+- Self-Attention
 - Multi-Head Attention
-- 
+- Positional Encoding
+- Masked multi-head attention&Encoder-Decoder Attention
 
 ### 3. 组件
 
