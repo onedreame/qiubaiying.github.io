@@ -92,6 +92,14 @@ $$
 
 ​        由于输出层的大小为字典的大小，而字典通常非常大，所以直接进行softmax的话会非常耗时，针对这个问题，word2vec使用了[hierarchical softmax](https://www.cnblogs.com/pinard/p/7243513.html)和负采样技术来优化训练。
 
+![](https://pic4.zhimg.com/v2-ab0b1ad441e3d60fb31d8165dbaca305_1440w.jpg?source=172ae18b)
+
+<center>word2vec skip-gram训练示例</center>
+
+![](https://pic4.zhimg.com/80/v2-db8cc864e28ce073661d3e65df7bcceb_1440w.jpg)
+
+<center>word2vec CBOW训练示例，1/3代表对feature中的所有词向量求均值</center>
+
 ​	除了word2vec，还有个很重要的词向量：GloVe（Global Vectors for Word Representation），它是一个基于**全局词频统计**（count-based & overall statistics）的词表征（word representation）工具，它可以把一个单词表达成一个由实数组成的向量，这些向量捕捉到了单词之间一些语义特性，比如相似性（similarity）、类比性（analogy）等。
 
 ​	GloVe通过如下三步实现：
