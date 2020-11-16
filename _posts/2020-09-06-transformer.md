@@ -140,6 +140,7 @@ class MultiHeadedAttention(nn.Module):
         super(MultiHeadedAttention, self).__init__()
         assert d_model % h == 0
         # We assume d_v always equals d_k
+        
         self.d_k = d_model // h
         self.h = h
         self.linears = nn.ModuleList([nn.Linear(d_model, d_model) for _ in range(4)])
@@ -158,11 +159,13 @@ class MultiHeadedAttention(nn.Module):
         nbatches = query.size(0)
         
         # 1) Do all the linear projections in batch from d_model => h x d_k 
+        
         query, key, value = \
             [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
              for l, x in zip(self.linears, (query, key, value))]
         
         # 2) Compute 'Scaled Dot Product Attention'. 
+        
         d_k = query.size(-1)
         scores = torch.matmul(query, key.transpose(-2, -1)) \
                  / math.sqrt(d_k)
@@ -174,6 +177,7 @@ class MultiHeadedAttention(nn.Module):
         x = torch.matmul(p_attn, value)
         
         # 3) "Concat" using a view and apply a final linear. 
+        
         x = x.transpose(1, 2).contiguous() \
              .view(nbatches, -1, self.h * self.d_k)
         return self.linears[-1](x)
@@ -206,6 +210,7 @@ class PositionalEncoding(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
         
         # Compute the positional encodings once in log space.
+        
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2) *
