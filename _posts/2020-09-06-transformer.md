@@ -131,6 +131,53 @@ $$
 >
 > ​	按照上面的研究，大致可以看出每一层的multi-head中attention是存在很多冗余的，即使是独立计算的注意力头，大概率关注的点还是一致的。如果全部的head都关注于同样的内容，那么很显然对于下层语义的提取是不充分的，而那些特立独行的head因为关注到了额外的信息，所以能使模型的能力得到进一步的优化。而为了增加那些特立独行的head的出现概率，所以需要使用multi。
 
+```python
+# MultiHeadedAttention实现
+class MultiHeadedAttention(nn.Module):
+    def __init__(self, h, d_model, dropout=0.1):
+        "Take in model size and number of heads."
+        super(MultiHeadedAttention, self).__init__()
+        assert d_model % h == 0
+        # We assume d_v always equals d_k
+        self.d_k = d_model // h
+        self.h = h
+        self.linears = nn.ModuleList([nn.Linear(d_model, d_model) for _ in range(4)])
+        self.attn = None
+        self.dropout = nn.Dropout(p=dropout)
+        
+    def forward(self, query, key, value, mask=None):
+        '''
+        Implements multihead.
+        :param query: (batch_size, seq_len, embeding_size)
+        :param key: (batch_size, seq_len, embeding_size)
+        :param value: (batch_size, seq_len, embeding_size)
+        :param mask: 若不为None，shape：(batch_size,1, 1 or seq_len, seq_len)
+        :return: z (batch_size, seq_len, embedding_size)
+        '''
+        nbatches = query.size(0)
+        
+        # 1) Do all the linear projections in batch from d_model => h x d_k 
+        query, key, value = \
+            [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
+             for l, x in zip(self.linears, (query, key, value))]
+        
+        # 2) Compute 'Scaled Dot Product Attention'. 
+        d_k = query.size(-1)
+        scores = torch.matmul(query, key.transpose(-2, -1)) \
+                 / math.sqrt(d_k)
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, -1e9)
+        p_attn = F.softmax(scores, dim = -1)
+        if self.dropout is not None:
+            p_attn = self.dropout(p_attn)
+        x = torch.matmul(p_attn, value)
+        
+        # 3) "Concat" using a view and apply a final linear. 
+        x = x.transpose(1, 2).contiguous() \
+             .view(nbatches, -1, self.h * self.d_k)
+        return self.linears[-1](x)
+```
+
 #### 3.3 Positional Encoding
 
 ​	进行到这里的时候，你可能会发现一个问题，attention的运算只涉及到了token的vectors的运算，而没有任何的位置信息，而缺失了这个信息，其实相当于丢失了序列信息，这对于文本这种存在着明显时序信息的序列来说很显然是不行的。这个该怎么解决呢？答案就是Positional Encoding。
@@ -145,6 +192,34 @@ $$
 
 ​	这种处理方式能够扩展到未知的序列长度(例如，当我们训练出的模型需要翻译远比训练集里的句子更长的句子时)。
 
+注意下方实现中的*exp*运算：
+$$
+1/10000^{2i/d_{model}}=e^{log10000^{−2i/d_{model}}}=e^{−2i/d_{model}*log10000}=e^{2i*(−log10000/d_{model})}
+$$
+
+```python
+class PositionalEncoding(nn.Module):
+    "Implement the PE function."
+    def __init__(self, d_model, dropout, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        
+        # Compute the positional encodings once in log space.
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) *
+                             -(math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.register_buffer('pe', pe)
+        
+    def forward(self, x):
+        x = x + Variable(self.pe[:, :x.size(1)], 
+                         requires_grad=False)
+        return self.dropout(x)
+```
+
 #### 3.4 Masked multi-head attention&Encoder-Decoder Attention
 
 ​	Masked multi-head attention是个用于decoder模块小的点，目的是为了防止在decode的时候提前看到后面的词，具体做法是在计算self-attention的softmax前先mask掉未来的位置（设为-∞），这样就可以在预测位置i的时候只能根据i之前位置的输出。
@@ -154,6 +229,30 @@ $$
 ![](https://miro.medium.com/max/1400/1*y8b_OD1EnqvNSARNxzlbtQ@2x.png)
 
 <center>Encoder-decoder attention</center>
+
+```python
+# 构建mask
+def make_src_mask(src, pad):
+  '''
+  :param src: (batch_size, seq_len)
+  :param pad: pad id 
+  :return: mask (batch_size, 1, 1, seq_len)
+  '''
+  return (src!=pad).unsequeeze(1).unsqueeze(1)
+def make_tgt_mask(tgt, pad):
+  '''
+  Create a mask to hide padding and future words.
+  :param tgt: (batch_size, seq_len)
+  :param pad: pad id 
+  :return: mask (batch_size, 1, seq_len, seq_len)
+  '''
+  tgt_mask = (tgt != pad).unsqueeze(-2)
+  attn_shape = (1, tgt.size(-1), tgt.size(-1))
+  subsequent_mask = np.triu(np.ones(attn_shape), k=1).astype('uint8')
+  subsequent_mask = torch.from_numpy(subsequent_mask) == 0
+  tgt_mask = tgt_mask & subsequent_mask.type_as(tgt_mask.data)
+  return tgt_mask.unsqueeze(1)
+```
 
 ### 4.一些总结
 
