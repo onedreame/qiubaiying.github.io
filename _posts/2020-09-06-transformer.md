@@ -133,6 +133,7 @@ $$
 
 ```python
 # MultiHeadedAttention实现
+
 class MultiHeadedAttention(nn.Module):
     def __init__(self, h, d_model, dropout=0.1):
         "Take in model size and number of heads."
@@ -232,6 +233,7 @@ class PositionalEncoding(nn.Module):
 
 ```python
 # 构建mask
+
 def make_src_mask(src, pad):
   '''
   :param src: (batch_size, seq_len)
@@ -239,6 +241,7 @@ def make_src_mask(src, pad):
   :return: mask (batch_size, 1, 1, seq_len)
   '''
   return (src!=pad).unsequeeze(1).unsqueeze(1)
+
 def make_tgt_mask(tgt, pad):
   '''
   Create a mask to hide padding and future words.
